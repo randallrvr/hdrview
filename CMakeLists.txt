@@ -383,6 +383,7 @@ add_executable(
   src/hdrcolorpicker.h
   src/hdrimage.cpp
   src/hdrimage.h
+  src/hdrimageddsio.cpp
   src/hdrimagedngio.cpp
   src/hdrimageio.cpp
   src/hdrimageraw.cpp
@@ -447,6 +448,7 @@ add_executable(
   src/fwd.h
   src/hdrimage.cpp
   src/hdrimage.h
+  src/hdrimageddsio.cpp
   src/hdrimagedngio.cpp
   src/hdrimageio.cpp
   src/hdrimageraw.cpp

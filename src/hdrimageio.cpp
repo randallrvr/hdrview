@@ -262,6 +262,19 @@ bool HDRImage::load(const string &filename)
             errors = e.what();
         }
     }
+    else if (extension == "dds")
+    {
+        try
+        {
+            load_dds(filename);
+            return true;
+        }
+        catch (const exception &e)
+        {
+            resize(0, 0);
+            errors = e.what();
+        }
+    }
     else
         errors = "This doesn't seem to be a supported image file.";
 

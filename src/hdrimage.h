@@ -331,6 +331,7 @@ public:
     //@}
 
     bool load(const std::string &filename);
+    void load_dds(const std::string &filename);
     void load_dng(const std::string &filename);
     /*!
      * @brief           Write the file to disk.
