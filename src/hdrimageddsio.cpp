@@ -1,9 +1,8 @@
 
 
 #include "hdrimage.h"
-
-
 #include <ImathMatrix.h>
+#include <spdlog/spdlog.h>
 
 
 // these pragmas ignore warnings about unused static functions
@@ -261,7 +260,7 @@ void convert(HDRImage &img,
                  {
                      for (uint32_t x = 0; x < width; x++)
                      {
-                        Color4 color(0.f, 1.f);
+                        Color4 color(0.0f, 1.0f);
                         // Channel Loop
                         for(int c = 0; c < 4; c++)
                         {
@@ -273,11 +272,6 @@ void convert(HDRImage &img,
 
                                 color[c] = fval;
                             }
-                            else
-                            {
-                                color[c] = 1.0f;
-                            }
-                            
                         }
                         img(x, y) = color;
                      }
@@ -321,9 +315,48 @@ void convert<uint8_t>(HDRImage &img,
 
                                 color[c] = fval;
                             }
-                            else
+                        }
+                        img(x, y) = color;
+                     }
+                 }
+#ifdef NDEBUG                 
+                 );
+#endif
+}
+
+template<>
+void convert<int8_t>(HDRImage &img,
+                      const DDSFile::ImageData *data,
+                      const int numChannels)
+{
+    uint32_t width  = data->m_width;
+    uint32_t height = data->m_height;
+ 
+    const int8_t *ddsMem = (const int8_t *)data->m_mem;
+
+#if defined(NDEBUG)
+    parallel_for(0, height,
+                 [&image, width, numChannels, ddsMem](uint32_t y)
+#else
+                for (uint32_t y = 0; y < height; y++)
+#endif
+                 {
+                     for (uint32_t x = 0; x < width; x++)
+                     {
+                        Color4 color(0.f, 1.f);
+                        // Channel Loop
+                        for(int c = 0; c < 4; c++)
+                        {
+                            if(c < numChannels)
                             {
-                                color[c] = 1.0f;
+                                uint32_t inputIndex = numChannels * (x + y * width) + c;
+ 
+                                int8_t ival = ddsMem[inputIndex];
+                                float fval = static_cast<float>(ival + 128) / 255.0f;   // to range [0,+1]
+
+                                fval = fval * 2.0f - 1.0f;     // to range [-1,+1]
+
+                                color[c] = fval;
                             }
                         }
                         img(x, y) = color;
@@ -354,17 +387,9 @@ void HDRImage::load_dds(const string &filename)
     if(numChannels == 0 || bytesPerChannel == 0)
         throw std::runtime_error("Don't know how to load those channels.");
 
-
-    // GetImageInfo(w, h, dds.GetFormat())
-
-    // HDRImage copy(w, h);
-    // copy.copy_paste(*this, Box2i(Vector2i(start_x, start_y), Vector2i(end_x, end_y)), 0, 0);
-
-
-    vector<float> hdr;
     const DDSFile::ImageData *data = dds.GetImageData();
 
-
+    // Resize internal HDRImage
     resize(dds.GetWidth(), dds.GetHeight());
 
     if(type == Types::Float32)
@@ -392,8 +417,16 @@ void HDRImage::load_dds(const string &filename)
     else if (type == Types::UNorm8)
         convert<uint8_t>(*this, data, numChannels);
 
+}
 
-    // HDRImage copy(width, height);
-    // copy.copy_paste(*this, Box2i(nanogui::Vector2i(0, 0), nanogui::Vector2i(width, height)), 0, 0);
-    // *this = copy;
+
+
+void printImageInfo(const DDSFile &dds)
+{
+    spdlog::debug("width = {}.",  dds.GetWidth());
+    spdlog::debug("height = {}.", dds.GetHeight());
+    spdlog::debug("depth = {}.",  dds.GetDepth());
+    spdlog::debug("mipCount = {}.", dds.GetMipCount());
+    spdlog::debug("arraySize = {}.", dds.GetArraySize());
+    spdlog::debug("bits per pixel = {}.", dds.GetBitsPerPixel(dds.GetFormat()));
 }

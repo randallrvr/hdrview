@@ -1423,6 +1423,7 @@ bool HDRViewScreen::load_image()
 {
     vector<string> files = file_dialog({{"exr", "OpenEXR image"},
                                         {"dng", "Digital Negative raw image"},
+                                        {"dds", "DirectDraw Surface"},
                                         {"png", "Portable Network Graphic image"},
                                         {"pfm", "Portable FloatMap image"},
                                         {"ppm", "Portable PixMap image"},
