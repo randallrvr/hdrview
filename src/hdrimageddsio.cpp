@@ -240,124 +240,98 @@ void getChannelsAndBytes(DDSFile::DXGIFormat format, bool &isFloatingPoint, bool
     }
 }
 
-
 template<typename imageType>
-void convert(vector<float> &image,
+void convert(HDRImage &img,
              const DDSFile::ImageData *data,
              const int numChannels)
 {
     uint32_t width  = data->m_width;
     uint32_t height = data->m_height;
 
-    image.resize(static_cast<size_t>(width * height));
+    img.resize(width, height);
 
     const imageType *ddsMem = (const imageType *)data->m_mem;
 
+#ifdef NDEBUG
     parallel_for(0, height,
-                 [&image, width, numChannels, ddsMem](int y)
+                 [&image, width, numChannels, ddsMem](uint32_t y)
+#else
+                for (uint32_t y = 0; y < height; y++)
+#endif
                  {
                      for (uint32_t x = 0; x < width; x++)
                      {
+                        Color4 color(0.f, 1.f);
                         // Channel Loop
                         for(int c = 0; c < 4; c++)
                         {
-                            uint32_t outputIndex = 4 * (x + y * width) + c;
-
                             if(c < numChannels)
                             {
                                 uint32_t inputIndex = numChannels * (x + y * width) + c;
 
-                                imageType val = ddsMem[inputIndex];
+                                float fval = static_cast<float>(ddsMem[inputIndex]);
 
-                                image[static_cast<size_t>(inputIndex)] = static_cast<imageType>(val);
+                                color[c] = fval;
                             }
                             else
                             {
-                                image[static_cast<size_t>(outputIndex)] = static_cast<imageType>(1.0f);
+                                color[c] = 1.0f;
                             }
-
+                            
                         }
+                        img(x, y) = color;
                      }
-                 });
-
+                 }
+#ifdef NDEBUG                 
+                 );
+#endif
 }
 
+
 template<>
-void convert<int8_t>(vector<float> &image,
-             const DDSFile::ImageData *data,
-             const int numChannels)
+void convert<uint8_t>(HDRImage &img,
+                      const DDSFile::ImageData *data,
+                      const int numChannels)
 {
     uint32_t width  = data->m_width;
     uint32_t height = data->m_height;
-
-    image.resize(static_cast<size_t>(width * height));
-
-    const int8_t *ddsMem = (const int8_t *)data->m_mem;
-
-    parallel_for(0, height,
-                 [&image, width, numChannels, ddsMem](int y)
-                 {
-                     for (uint32_t x = 0; x < width; x++)
-                     {
-                        for(int c = 0; c < 4; c++)
-                        {
-                            uint32_t outputIndex = 4 * (x + y * width) + c;
-
-                            if(c < numChannels)
-                            {
-                                uint32_t inputIndex = numChannels * (x + y * width) + c;
-
-                                int8_t val = ddsMem[inputIndex];
-
-                                image[static_cast<size_t>(outputIndex)] = static_cast<int8_t>(val);
-                            }
-                            else
-                            {
-                                image[static_cast<size_t>(outputIndex)] = static_cast<int8_t>(1.0f);
-                            }
-                        }
-                     }
-                 });
-
-}
-
-template<>
-void convert<uint8_t>(vector<float> &image,
-             const DDSFile::ImageData *data,
-             const int numChannels)
-{
-    uint32_t width  = data->m_width;
-    uint32_t height = data->m_height;
-
-    image.resize(static_cast<size_t>(width * height));
+ 
 
     const uint8_t *ddsMem = (const uint8_t *)data->m_mem;
 
+#if defined(NDEBUG)
     parallel_for(0, height,
-                 [&image, width, numChannels, ddsMem](int y)
+                 [&image, width, numChannels, ddsMem](uint32_t y)
+#else
+                for (uint32_t y = 0; y < height; y++)
+#endif
                  {
                      for (uint32_t x = 0; x < width; x++)
                      {
+                        Color4 color(0.f, 1.f);
+                        // Channel Loop
                         for(int c = 0; c < 4; c++)
                         {
-                            uint32_t outputIndex = 4 * (x + y * width) + c;
-
                             if(c < numChannels)
                             {
                                 uint32_t inputIndex = numChannels * (x + y * width) + c;
  
-                                uint8_t val = ddsMem[inputIndex];
+                                uint8_t uval = ddsMem[inputIndex];
+                                float fval = static_cast<float>(uval) / 255.0f;
 
-                                image[static_cast<size_t>(outputIndex)] = static_cast<uint8_t>(val);
+                                color[c] = fval;
                             }
                             else
                             {
-                                image[static_cast<size_t>(outputIndex)] = static_cast<uint8_t>(1.0f);
+                                color[c] = 1.0f;
                             }
                         }
+                        img(x, y) = color;
                      }
-                 });
-
+                 }
+#ifdef NDEBUG                 
+                 );
+#endif
 }
 
 
@@ -368,12 +342,6 @@ void HDRImage::load_dds(const string &filename)
     Result ret = dds.Load(filename.c_str());
     if (ret != tinyddsloader::Result::Success)
         throw std::runtime_error("Failed to load DDS.");
-
-    uint32_t width  = dds.GetWidth();
-    uint32_t height = dds.GetHeight();
-
-    // uint32_t bitsPerPixel  = dds.GetBitsPerPixel(dds.GetFormat());
-    // uint32_t bytesPerPixel = bitsPerPixel >> 3;
 
     bool  isFloatingPoint;
     bool  isHalfFloat;
@@ -397,33 +365,35 @@ void HDRImage::load_dds(const string &filename)
     const DDSFile::ImageData *data = dds.GetImageData();
 
 
+    resize(dds.GetWidth(), dds.GetHeight());
+
     if(type == Types::Float32)
-        convert<float>(hdr, data, numChannels);
+        convert<float>(*this, data, numChannels);
     else if (type == Types::Float16)
-        convert<half>(hdr, data, numChannels);
+        convert<half>(*this, data, numChannels);
     else if (type == Types::SInt32)
-        convert<int32_t>(hdr, data, numChannels);
+        convert<int32_t>(*this, data, numChannels);
     else if (type == Types::SInt16)
-        convert<int16_t>(hdr, data, numChannels);
+        convert<int16_t>(*this, data, numChannels);
     else if (type == Types::SInt8)
-        convert<int8_t>(hdr, data, numChannels);
+        convert<int8_t>(*this, data, numChannels);
     else if (type == Types::UInt32)
-        convert<uint32_t>(hdr, data, numChannels);
+        convert<uint32_t>(*this, data, numChannels);
     else if (type == Types::UInt16)
-        convert<uint16_t>(hdr, data, numChannels);
+        convert<uint16_t>(*this, data, numChannels);
     else if (type == Types::UInt8)
-        convert<uint8_t>(hdr, data, numChannels);
+        convert<uint8_t>(*this, data, numChannels);
     else if (type == Types::SNorm16)
-        convert<int16_t>(hdr, data, numChannels);
+        convert<int16_t>(*this, data, numChannels);
     else if (type == Types::SNorm8)
-        convert<int8_t>(hdr, data, numChannels);
+        convert<int8_t>(*this, data, numChannels);
     else if (type == Types::UNorm16)
-        convert<uint16_t>(hdr, data, numChannels);
+        convert<uint16_t>(*this, data, numChannels);
     else if (type == Types::UNorm8)
-        convert<uint8_t>(hdr, data, numChannels);
+        convert<uint8_t>(*this, data, numChannels);
 
 
-    HDRImage copy(width, height);
-    copy.copy_paste(*this, Box2i(nanogui::Vector2i(0, 0), nanogui::Vector2i(width, height)), 0, 0);
-    *this = copy;
+    // HDRImage copy(width, height);
+    // copy.copy_paste(*this, Box2i(nanogui::Vector2i(0, 0), nanogui::Vector2i(width, height)), 0, 0);
+    // *this = copy;
 }

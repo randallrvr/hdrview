@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.13)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" "${CMAKE_SOURCE_DIR}/resources")
 
-include(VersionFromGit)
+# include(VersionFromGit)
 
 string(TIMESTAMP BUILD_TIME "%Y-%m-%d %H:%M")
 message(STATUS "Saving build timestamp: ${BUILD_TIME}")
 
-version_from_git(LOG ON TIMESTAMP "%Y-%m-%d-%H:%M:%S")
+# version_from_git(LOG ON TIMESTAMP "%Y-%m-%d-%H:%M:%S")
 
 project(
   hdrview
@@ -41,7 +41,7 @@ include(CheckCXXCompilerFlag)
 # ============================================================================
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to 'Release' as none was specified.")
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
@@ -193,6 +193,7 @@ if(cli11_ADDED)
 endif()
 
 cpmaddpackage("gh:gabime/spdlog@1.9.2")
+# https://github.com/gabime/spdlog/archive/refs/tags/v1.9.2.zip
 
 cpmaddpackage(
   NAME
